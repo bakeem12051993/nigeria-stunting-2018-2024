@@ -27,7 +27,7 @@ the scripts in it. You do not need to unzip or rename anything:
 
 ```
 project/
-  00_organize_files.R, 00_settings.R ... 09_survey_checks.R, run_all.R, README.md
+  00_organize_files.R, 00_settings.R, 00_design_tables.R ... 10_figures.R, run_all.R, README.md
   data/
     downloads/       what you downloaded, untouched
     dhs/
@@ -80,7 +80,7 @@ Open `run_all.R` and source it, or run the scripts one at a time:
 | Script | What it does | Main outputs |
 |---|---|---|
 | `01_prepare_dhs.R` | Replicates the official stunting figures and re-estimates them with corrected weights, harmonizes the two rounds, adds GPS and household buffers, sets the analysis weights | `01_official_replication.csv`, `01b_zone_mix_all_vs_measured.csv`, `02_data_quality.csv` |
-| `02_decomposition.R` | Pooled asset index, descriptive change, shift-share, sampling-frame check and Oaxaca-Blinder; key results again with the published weights | `03a` to `07b` tables, including `04b_frame_constant.csv` |
+| `02_decomposition.R` | Pooled asset index, descriptive change, shift-share, sampling-frame check, checks on clusters not surveyed and Oaxaca-Blinder; key results again with the published weights | `03a` to `07b` tables, including `04b_frame_constant.csv`, `04c_clusters_not_surveyed.csv` and `04d_coverage_sensitivity.csv` |
 | `03_exposure_conflict.R` | Conflict deaths within 10, 25 and 50 km of each cluster, by month | `derived/conflict_panels.rds` |
 | `04_exposure_prices.R` | Year-on-year food inflation at the nearest market | `derived/price_panels.rds` |
 | `05_exposure_climate.R` | Humid heat (wet-bulb), SPEI-3 drought, very wet months, hot-dry months | `derived/climate_panels.rds` |
@@ -147,6 +147,18 @@ planned census, and the North's share of households is higher under it.
 put on one round's household distribution across states (each state's child
 weights times the ratio of the two rounds' household shares), so that only
 children per household and stunting within states change.
+
+**Clusters not surveyed.** Insecurity kept survey teams out of some selected
+clusters (in the data, 10 in 2018 and 20 in 2023-24, 10 of them in
+Zamfara), and in 2018 out of 11 Borno LGAs whose clusters were replaced from the
+rest of the state. `00_design_tables.R` holds each report's cluster allocation by
+state and residence (Appendix A, Table A.3) and the 2023 frame households (FR395,
+Table A.1). Step 02 then (a) checks, for 2023-24, whether the DHS weights carry
+the share of the missing clusters, by comparing each stratum's weighted share of
+households with its frame share (`04c_clusters_not_surveyed.csv`); (b) recomputes
+the change with children in the missing clusters made worse than the rest of
+their stratum, in one or both rounds (a tipping-point analysis); and (c) drops the
+states that lost clusters (`04d_coverage_sensitivity.csv`).
 
 ## 7. Notes
 

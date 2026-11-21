@@ -6,6 +6,8 @@
 #  3b. Sampling-frame check: the change with the household distribution across
 #      states held fixed (the 2018 survey used the 2006 census frame, the
 #      2023-24 survey the new frame prepared for the planned census)
+#  3c. Clusters not surveyed because of insecurity: weight check, tipping point
+#      and common coverage (uses 00_design_tables.R)
 #  4. Oaxaca-Blinder decomposition of the change in mean HAZ and stunting
 #  5. The key results again with the published DHS weights (sensitivity)
 #  Reads derived/children.rds and the household recodes. Writes output/03 to 07b tables,
@@ -156,6 +158,128 @@ cat("\nNorth's share of households (%): 2018", round(100 * sum(hh_share[["2018"]
 cat("Change with the household distribution held fixed:\n"); print(frame_tab, digits = 3)
 
 
+# ---- 3c. Clusters not surveyed ---------------------------------------------------------
+# Insecurity kept survey teams out of some selected clusters (11 in 2018 and 20
+# in 2023-24, by the reports), and in 2018 out of 11 Borno LGAs, whose clusters
+# were replaced from the rest of the state. Three checks:
+#  (a) Do the DHS weights carry the share of the clusters not surveyed? For
+#      2023-24, each stratum's weighted share of households is compared with its
+#      share of households in the 2023 frame. If those clusters were simply lost,
+#      the ratio would fall with the share of clusters surveyed (slope near 1 on
+#      the log scale); if the weights spread their share over the stratum's
+#      surveyed clusters, it would not (slope near 0).
+#  (b) Tipping point: children in the clusters not surveyed are given a level
+#      worse than the rest of their stratum by delta, in one or both rounds, and
+#      the change is recomputed. With the weights carrying their share, stratum
+#      h's estimate becomes (1 - s) * p + s * (p + delta), where s is the share
+#      of its clusters not surveyed (stunting capped at 100%).
+#  (c) Common coverage: the change without the states that lost clusters.
+source("00_design_tables.R")
+hh_cl <- do.call(rbind, lapply(c("2018", "2024"), function(yr) {
+  h <- read_dhs(dhs_path(yr, "hr"), c("hv001", "hv005", "hv025", pr_state_var[[yr]]))
+  data.frame(round = round_label[[yr]], state = state_key(lab_of(h, pr_state_var[[yr]])),
+             residence = ifelse(getv(h, "hv025") == 1, "urban", "rural"),
+             cluster = getv(h, "hv001"), w = getv(h, "hv005") / 1e6)
+}))
+n_surveyed <- aggregate(cluster ~ round + state + residence, hh_cl, function(x) length(unique(x)))
+names(n_surveyed)[names(n_surveyed) == "cluster"] <- "surveyed"
+strata_tab <- rbind(
+  data.frame(alloc[, c("round", "state")], residence = "urban", allocated = alloc$urban),
+  data.frame(alloc[, c("round", "state")], residence = "rural", allocated = alloc$rural))
+strata_tab <- merge(strata_tab, n_surveyed, all.x = TRUE)
+strata_tab$surveyed[is.na(strata_tab$surveyed)] <- 0
+strata_tab$not_surveyed       <- pmax(strata_tab$allocated - strata_tab$surveyed, 0)
+strata_tab$share_not_surveyed <- strata_tab$not_surveyed / strata_tab$allocated
+cat("\nClusters allocated and surveyed:\n")
+print(aggregate(cbind(allocated, surveyed, not_surveyed) ~ round, strata_tab, sum), row.names = FALSE)
+
+# (a) Weight check, 2023-24
+frame_long <- rbind(
+  data.frame(state = frame_hh_2024$state, residence = "urban", frame_hh = frame_hh_2024$urban),
+  data.frame(state = frame_hh_2024$state, residence = "rural", frame_hh = frame_hh_2024$rural))
+w_hh <- aggregate(w ~ state + residence, hh_cl[hh_cl$round == "2023-24", ], sum)
+wcheck <- merge(merge(frame_long, w_hh), strata_tab[strata_tab$round == "2023-24", ])
+wcheck$frame_share    <- wcheck$frame_hh / sum(wcheck$frame_hh)
+wcheck$weighted_share <- wcheck$w / sum(wcheck$w)
+wcheck$ratio          <- wcheck$weighted_share / wcheck$frame_share
+wfit <- summary(lm(log(ratio) ~ log(1 - share_not_surveyed), data = wcheck))$coefficients
+cat("\nWeighted / frame household share, 2023-24: median", round(median(wcheck$ratio[wcheck$not_surveyed == 0]), 2),
+    "in complete strata; slope on log share of clusters surveyed",
+    sprintf("%.2f (SE %.2f)", wfit[2, 1], wfit[2, 2]), "\n")
+print(wcheck[wcheck$not_surveyed > 0, c("state", "residence", "allocated", "surveyed", "ratio")],
+      row.names = FALSE, digits = 3)
+unvisited <- merge(strata_tab[strata_tab$not_surveyed > 0, ],
+                   wcheck[, c("state", "residence", "round", "frame_share", "weighted_share", "ratio")],
+                   all.x = TRUE)
+
+# (b) Tipping point
+rdes$variables$stratum <- paste(ana$state, ana$residence)
+rdes$variables$f_2018  <- to_2018
+s_miss <- with(strata_tab, setNames(share_not_surveyed, paste(round, state, residence)))
+share_children_missing <- sapply(c("2018", "2023-24"), function(k) {
+  i <- ana$round == k
+  W <- tapply(weights(rdes, "sampling")[i], rdes$variables$stratum[i], sum)
+  s <- s_miss[paste(k, names(W))]; s[is.na(s)] <- 0
+  sum(W * s) / sum(W)
+})
+cat("Share of children in strata's clusters not surveyed (%):",
+    paste(names(share_children_missing), round(100 * share_children_missing, 2), collapse = "; "), "\n")
+tip_change <- function(w, data, y, delta, hit, lim, frame = FALSE) {
+  if (frame) w <- w * data$f_2018
+  P <- sapply(c("2018", "2023-24"), function(k) {
+    i <- !is.na(data[[y]]) & data$round == k
+    W <- tapply(w[i], data$stratum[i], sum)
+    p <- tapply(w[i] * data[[y]][i], data$stratum[i], sum) / W
+    s <- s_miss[paste(k, names(W))]; s[is.na(s)] <- 0
+    d <- if (k %in% hit) delta else 0
+    sum(W * ((1 - s) * p + s * pmin(pmax(p + d, lim[1]), lim[2]))) / sum(W)
+  })
+  c(change = P[["2023-24"]] - P[["2018"]])
+}
+# Grid: delta in stunting (proportion; 1 = every child in those clusters stunted)
+# or HAZ (SD), applied to the clusters not surveyed in 2023-24 only (which would
+# enlarge the rise), in 2018 only (which would shrink it) or in both.
+tip_grid <- rbind(
+  expand.grid(y = "stunted", delta = c(0, 0.1, 0.2, 0.3, 0.5, 1), hit = c("2023-24", "2018", "both"),
+              frame = c(FALSE, TRUE), stringsAsFactors = FALSE),
+  expand.grid(y = "haz", delta = c(0, -0.5, -1, -2), hit = c("2023-24", "2018", "both"),
+              frame = c(FALSE, TRUE), stringsAsFactors = FALSE))
+tip_grid <- tip_grid[!(tip_grid$delta == 0 & tip_grid$hit != "both"), ]
+tip_tab <- do.call(rbind, lapply(seq_len(nrow(tip_grid)), function(j) {
+  g <- tip_grid[j, ]
+  hit <- if (g$hit == "both") c("2018", "2023-24") else g$hit
+  lim <- if (g$y == "stunted") c(0, 1) else c(-Inf, Inf)
+  r <- tidy_rep(withReplicates(rdes, tip_change, y = g$y, delta = g$delta, hit = hit, lim = lim,
+                               frame = g$frame), "tipping point")
+  cbind(outcome = g$y, scenario = if (g$delta == 0) "as surveyed" else paste("worse in", g$hit),
+        delta = g$delta, households = if (g$frame) "2018 distribution" else "as surveyed",
+        r[, c("estimate", "lower", "upper")])
+}))
+
+# (c) Common coverage
+lost_2018 <- c("zamfara", "sokoto", "katsina", "lagos", "borno")              # FR359, A.3
+lost_2024 <- c("zamfara", "borno", "benue", "imo", "katsina", "kaduna", "niger")  # FR395, 1.2
+cover_sets <- list("Without Borno and Zamfara" = c("borno", "zamfara"),
+                   "Without the 9 states that lost clusters in either survey" = union(lost_2018, lost_2024))
+cov_change <- function(w, data, y, frame = FALSE) {
+  if (frame) w <- w * data$f_2018
+  ok <- !is.na(data[[y]])
+  m <- function(k) { i <- ok & data$round == k; sum(w[i] * data[[y]][i]) / sum(w[i]) }
+  c(change = m("2023-24") - m("2018"))
+}
+cover_tab <- do.call(rbind, lapply(names(cover_sets), function(nm) {
+  d <- subset(rdes, !state %in% cover_sets[[nm]])
+  do.call(rbind, lapply(c("stunted", "haz"), function(y) do.call(rbind, lapply(c(FALSE, TRUE), function(fr) {
+    r <- tidy_rep(withReplicates(d, cov_change, y = y, frame = fr), "common coverage")
+    cbind(outcome = y, scenario = nm, delta = NA,
+          households = if (fr) "2018 distribution" else "as surveyed", r[, c("estimate", "lower", "upper")])
+  }))))
+}))
+coverage_tab <- rbind(tip_tab, cover_tab)
+cat("\nChange under coverage scenarios (stunting as a proportion, HAZ in SD):\n")
+print(coverage_tab, digits = 3, row.names = FALSE)
+
+
 # ---- 4. Oaxaca-Blinder -------------------------------------------------------------------
 domain_of <- c(
   age_band = "Child", female = "Child", birth_order = "Child",
@@ -240,6 +364,8 @@ if (weighting != "published") {
 write.csv(change,    file.path(out_dir, "03e_change_by_zone.csv"),       row.names = FALSE)
 write.csv(ss,        file.path(out_dir, "04_shift_share.csv"),           row.names = FALSE)
 write.csv(frame_tab, file.path(out_dir, "04b_frame_constant.csv"),       row.names = FALSE)
+write.csv(unvisited, file.path(out_dir, "04c_clusters_not_surveyed.csv"), row.names = FALSE)
+write.csv(coverage_tab, file.path(out_dir, "04d_coverage_sensitivity.csv"), row.names = FALSE)
 write.csv(ob_main,   file.path(out_dir, "05_oaxaca_main.csv"),           row.names = FALSE)
 write.csv(ob_sub,    file.path(out_dir, "06_oaxaca_subgroups.csv"),      row.names = FALSE)
 write.csv(ob_sens,   file.path(out_dir, "07_oaxaca_sensitivity.csv"),    row.names = FALSE)
