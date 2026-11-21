@@ -1,0 +1,15 @@
+# DHS microdata and anything derived from it must never be committed
+data/
+derived/
+output/
+*.dta
+*.DTA
+*.dbf
+*.sav
+*.rds
+*.RData
+*.Rhistory
+*.nc
+*.zip
+*.csv
+.Rproj.user/
