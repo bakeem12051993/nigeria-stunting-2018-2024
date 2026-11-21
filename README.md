@@ -27,7 +27,7 @@ the scripts in it. You do not need to unzip or rename anything:
 
 ```
 project/
-  00_organize_files.R, 00_settings.R, 00_design_tables.R ... 10_figures.R, run_all.R, README.md
+  00_organize_files.R, 00_settings.R, 00_design_tables.R ... 11_map.R, run_all.R, README.md
   data/
     downloads/       what you downloaded, untouched
     dhs/
@@ -89,6 +89,7 @@ Open `run_all.R` and source it, or run the scripts one at a time:
 | `08_attribution.R` | How much of the 2018 to 2023-24 change each shock domain explains | `09_attribution.csv`, `fig_attribution.png` |
 | `09_survey_checks.R` | Where children under 5 live and anemia in 2018, 2021 (MIS, if present) and 2023-24; households picked for measuring versus the rest | `10` to `12` tables |
 | `10_figures.R` | The six manuscript figures (shock timeline, zones, age, survey design, Oaxaca-Blinder, shocks by window), 300 dpi and 174 mm wide | `output/figures/fig1_timeline.png` to `fig6_shocks.png` |
+| `11_map.R` | Map of stunting by state in 2018 and 2023-24 and the change, with zone boundaries. Downloads GADM 4.1 state boundaries once into `data/external/boundaries` (needs `install.packages("geodata")` and internet the first time) | `output/figures/fig_map_stunting.png`, `11_state_stunting.csv` |
 
 Step 01 starts by printing which DHS files it found and runs on every round that
 is complete. Any step that cannot run yet is marked "Skipped" with the reason,
