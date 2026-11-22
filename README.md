@@ -1,20 +1,18 @@
 # Child stunting in Nigeria, 2018 to 2023-24: R code
 
 Analysis code for "Population shift, survey design and early-life shocks:
-explaining the rise in child stunting in Nigeria, 2018 to 2023-24", using the
-2018 and 2023-24 Nigeria Demographic and Health Surveys (NDHS).
-
-**No data are included.** The DHS terms do not allow the survey files, or
-anything derived from them at the child or household level, to be shared. To
-run the code, register at dhsprogram.com, request the Nigeria 2018 and 2023-24
-surveys (KR, PR, HR and GE files, and the 2021 MIS for the optional checks), and
-download the free external data listed in section 3. The `.gitignore` keeps
-`data/`, `derived/` and `output/` out of the repository.
+explaining the rise in child stunting in Nigeria, 2018 to 2023-24" (NDHS 2018
+and 2023-24).
 
 ## 1. Folder layout
 
-Set `project_dir` at the top of `00_settings.R` to your project folder and put
-the scripts in it. You do not need to unzip or rename anything:
+Set your project folder in `00_settings.R`:
+
+```
+project_dir <- "path/to/project"
+```
+
+Put the scripts in that folder. You do not need to unzip or rename anything:
 
 1. Create `data/downloads` in the project folder (or run `00_organize_files.R`
    once and it creates it for you).
@@ -26,8 +24,8 @@ the scripts in it. You do not need to unzip or rename anything:
    analysis will find. Rerun it whenever you add downloads.
 
 ```
-project/
-  00_organize_files.R, 00_settings.R, 00_design_tables.R ... 11_map.R, run_all.R, README.md
+Child and Adolescent Health/
+  00_organize_files.R, 00_settings.R, 00_design_tables.R ... 14_multiple_testing.R, run_all.R, README.md
   data/
     downloads/       what you downloaded, untouched
     dhs/
@@ -88,8 +86,11 @@ Open `run_all.R` and source it, or run the scripts one at a time:
 | `07_models.R` | Models A to H (fixed effects: cluster, round by zone by age, round by zone by birth month) | `08_models.csv`, `fig_window_effects.png` |
 | `08_attribution.R` | How much of the 2018 to 2023-24 change each shock domain explains | `09_attribution.csv`, `fig_attribution.png` |
 | `09_survey_checks.R` | Where children under 5 live and anemia in 2018, 2021 (MIS, if present) and 2023-24; households picked for measuring versus the rest | `10` to `12` tables |
-| `10_figures.R` | The six manuscript figures (shock timeline, zones, age, survey design, Oaxaca-Blinder, shocks by window), 300 dpi and 174 mm wide | `output/figures/fig1_timeline.png` to `fig6_shocks.png` |
+| `10_figures.R` | The six manuscript figures (shock timeline, zones, age, survey design, Oaxaca-Blinder, shocks by window), 600 dpi and 174 mm wide | `output/figures/fig1_timeline.png` to `fig6_shocks.png` |
 | `11_map.R` | Map of stunting by state in 2018 and 2023-24 and the change, with zone boundaries. Downloads GADM 4.1 state boundaries once into `data/external/boundaries` (needs `install.packages("geodata")` and internet the first time) | `output/figures/fig_map_stunting.png`, `11_state_stunting.csv` |
+| `12_submission_figures.R` | Copies the seven figures to their manuscript numbers (Figure1.png to Figure7.png), checks they are 600 dpi at 174 mm wide, zips them, and saves R and package versions. Uses the zip package if installed | `output/submission_figures/`, `submission_figures.zip`, `session_info.txt` |
+| `13_food_markets_bounds.R` | Two added analyses, specified before running: (A) the main model refit on clusters within 25, 50 and 100 km of a monitored market, with the placebo before conception, and an interaction with being within 50 km, to test whether distance to markets weakens the food inflation estimates; (B) minimum detectable effects (80% power) and the most harmful effects and contributions inside the 95% CIs | `13a_food_near_markets.csv`, `13b_detectable_effects.csv`, `13c_contribution_bounds.csv` |
+| `14_multiple_testing.R` | Benjamini-Hochberg false discovery rates for the 15 main-model coefficients and for every shock coefficient estimated in steps 07 and 13 (specified before running) | `14_fdr.csv` |
 
 Step 01 starts by printing which DHS files it found and runs on every round that
 is complete. Any step that cannot run yet is marked "Skipped" with the reason,
@@ -164,16 +165,9 @@ states that lost clusters (`04d_coverage_sensitivity.csv`).
 ## 7. Notes
 
 - The placebo after the interview (model D) needs exposure data that reach 12
-  months past the last 2023-24 interview, and is skipped until the files cover
-  that period. With the cluster fixed effects it carries little information,
-  because exposure after the interview varies mostly between clusters.
+  months past the last 2023-24 interview. It is skipped automatically until the
+  conflict and price files cover 2025.
 - Rural residence is constant within a cluster, so in model F only its
   interactions with the shocks are estimated.
 - Send a PDF of any resulting publication to references@dhsprogram.com, as the
   DHS terms require.
-
-## 8. License and citation
-
-The code is released under the MIT License (see `LICENSE`). If you use it,
-please cite the article. The DHS data must be obtained from the DHS Program and
-used under its terms.

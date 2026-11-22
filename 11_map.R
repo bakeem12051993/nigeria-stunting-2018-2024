@@ -5,7 +5,7 @@
 #  matched to all children by state and urban/rural), as in step 02.
 #  State boundaries: GADM version 4.1, downloaded once with the geodata package
 #  into data/external/boundaries (needs internet the first time).
-#  Writes output/figures/fig_map_stunting.png (300 dpi, 174 mm wide) and
+#  Writes output/figures/fig_map_stunting.png (600 dpi, 174 mm wide) and
 #  output/11_state_stunting.csv
 # =============================================================================
 
@@ -88,7 +88,7 @@ titles <- c("A. Stunting, 2018 (%)", "B. Stunting, 2023-24 (%)", "C. Change (per
 
 ext <- terra::ext(states)
 png(file.path(fig_dir, "fig_map_stunting.png"), width = 174 / 25.4, height = 3.15, units = "in",
-    res = 300, bg = "white", type = "cairo")
+    res = 600, bg = "white", type = "cairo")
 layout(matrix(c(1, 2, 3, 4, 4, 5), nrow = 2, byrow = TRUE), heights = c(1, 0.36))
 par(family = "sans", cex = 0.8)
 for (k in 1:3) {

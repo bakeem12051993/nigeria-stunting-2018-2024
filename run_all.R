@@ -18,7 +18,10 @@ steps <- c("01_prepare_dhs.R",        # DHS files, official replication, quality
            "08_attribution.R",        # share of the change each shock explains
            "09_survey_checks.R",      # zone shares, anemia, measured households
            "10_figures.R",            # manuscript figures (output/figures)
-           "11_map.R")                # state map (downloads boundaries once; needs geodata)
+           "11_map.R",                # state map (downloads boundaries once; needs geodata)
+           "12_submission_figures.R", # Figure1-7.png at 600 dpi, zipped; R and package versions
+           "13_food_markets_bounds.R", # food inflation near markets; detectable effects and bounds
+           "14_multiple_testing.R")   # false discovery rate across the shock estimates
 
 for (s in steps) {
   cat("\n==============================", s, "==============================\n")

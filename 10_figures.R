@@ -11,7 +11,7 @@
 #  Figure 6  Shock associations with HAZ by window, with the placebo window
 #  Reads the output tables from steps 01 to 09, the exposure panels in derived/
 #  and the household recodes (for Figure 4B). Base R graphics only.
-#  Writes output/figures/fig1_timeline.png ... fig6_shocks.png (300 dpi, 174 mm wide)
+#  Writes output/figures/fig1_timeline.png ... fig6_shocks.png (600 dpi, 174 mm wide)
 # =============================================================================
 
 source("00_settings.R"); source("00_functions.R")
@@ -34,7 +34,7 @@ width_in <- 174 / 25.4
 
 open_fig <- function(name, height) {
   png(file.path(fig_dir, name), width = width_in, height = height, units = "in",
-      res = 300, bg = "white", type = "cairo")
+      res = 600, bg = "white", type = "cairo")
   par(family = "sans", col.axis = ink2, col.lab = ink, fg = axis_col, cex = 0.8,
       mgp = c(2, 0.5, 0), tcl = -0.25, las = 1)
 }
